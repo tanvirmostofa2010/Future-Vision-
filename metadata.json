@@ -1,0 +1,6 @@
+{
+  "name": "Future Vision Capital (FVC)",
+  "description": "ফিউচার ভিশন ক্যাপিটাল — ১১১ জন সদস্যের সমন্বিত সমবায় মূলধন, কিস্তি, বিনিয়োগ ও লভ্যাংশ ব্যবস্থাপনা পোর্টাল।",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
