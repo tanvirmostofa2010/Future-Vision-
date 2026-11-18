@@ -489,6 +489,248 @@ export function generateInitialLedger(members: Member[]): LedgerEntry[] {
   return entries;
 }
 
+export function generateSeedLedger(members: Member[]): LedgerEntry[] {
+  const entries: LedgerEntry[] = [];
+  let txnCounter = 88001;
+  let rcpCounter = 1001;
+  const methods: PaymentMethod[] = ['BANK_TRANSFER', 'MFS', 'CASH'];
+
+  // 1. Admission fees (111 entries)
+  for (const m of members) {
+    const isPendingAdmission = m.serialNumber === 111;
+    entries.push({
+      id: `TXN-${txnCounter++}`,
+      date: m.admissionDate,
+      category: 'ADMISSION',
+      debit: 0,
+      credit: ADMISSION_FEE_AMOUNT,
+      description: `এককালীন ভর্তি ফি — ${m.fullName} (${m.id})`,
+      memberId: m.id,
+      memberOwnerEmail: m.email,
+      approvedBy: isPendingAdmission ? 'অপেক্ষমাণ' : 'মোঃ রাশেদুল করিম (কোষাধ্যক্ষ)',
+      status: isPendingAdmission ? 'PENDING' : 'APPROVED',
+      paymentSubCategory: 'ADMISSION',
+      paymentMethod: methods[m.serialNumber % methods.length],
+      referenceNo: `ADM-${m.serialNumber}926`,
+      receiptNo: `RCP-2026-${rcpCounter++}`,
+      remarks: 'সদস্যপদ ভর্তি ফি বাবদ জমা',
+      submittedBy: m.id,
+    });
+  }
+
+  // 2. Consolidated Jan-Oct 2026 + individual Nov 2026 installments
+  for (const m of members) {
+    let paidMonths = 11;
+    if (m.status === 'INACTIVE') paidMonths = 4;
+    else if (m.serialNumber % 9 === 0) paidMonths = 9;
+    else if (m.serialNumber % 14 === 0) paidMonths = 8;
+    else if (m.serialNumber % 17 === 0) paidMonths = 10;
+    if (m.serialNumber === 78 || m.serialNumber === 1 || m.serialNumber === 3) {
+      paidMonths = 11;
+    }
+
+    const baseMonths = Math.min(paidMonths, 10);
+    if (baseMonths > 0) {
+      const covered = INSTALLMENT_MONTHS_2026.slice(0, baseMonths).map((x) => x.key);
+      const firstLabel = INSTALLMENT_MONTHS_2026[0].label;
+      const lastLabel = INSTALLMENT_MONTHS_2026[baseMonths - 1].label;
+      entries.push({
+        id: `TXN-${txnCounter++}`,
+        date: `2026-${pad2(baseMonths)}-15`,
+        category: 'INSTALLMENT',
+        debit: 0,
+        credit: baseMonths * MONTHLY_INSTALLMENT_AMOUNT,
+        description: `নিয়মিত কিস্তি (${firstLabel} – ${lastLabel}, ${baseMonths} মাস) — ${m.fullName}`,
+        memberId: m.id,
+        memberOwnerEmail: m.email,
+        approvedBy: 'মোঃ রাশেদুল করিম (কোষাধ্যক্ষ)',
+        status: 'APPROVED',
+        paymentSubCategory: 'INSTALLMENT',
+        monthKey: covered[covered.length - 1],
+        monthLabel: `${firstLabel} – ${lastLabel}`,
+        monthsCount: baseMonths,
+        coveredMonths: covered,
+        paymentMethod: methods[m.serialNumber % 3],
+        referenceNo: `INS-YTD-${pad3(m.serialNumber)}`,
+        receiptNo: `RCP-2026-${rcpCounter++}`,
+        submittedBy: m.id,
+      });
+    }
+
+    if (paidMonths === 11) {
+      const novObj = INSTALLMENT_MONTHS_2026[10];
+      const isPending = m.serialNumber === 12 || m.serialNumber === 45 || m.serialNumber === 88;
+      entries.push({
+        id: `TXN-${txnCounter++}`,
+        date: `2026-11-${pad2(4 + (m.serialNumber % 10))}`,
+        category: 'INSTALLMENT',
+        debit: 0,
+        credit: MONTHLY_INSTALLMENT_AMOUNT,
+        description: `মাসিক কিস্তি (${novObj.label}) — ${m.fullName}`,
+        memberId: m.id,
+        memberOwnerEmail: m.email,
+        approvedBy: isPending ? 'অপেক্ষমাণ' : 'মোঃ রাশেদুল করিম (কোষাধ্যক্ষ)',
+        status: isPending ? 'PENDING' : 'APPROVED',
+        paymentSubCategory: 'INSTALLMENT',
+        monthKey: novObj.key,
+        monthLabel: novObj.label,
+        monthsCount: 1,
+        coveredMonths: [novObj.key],
+        paymentMethod: methods[(m.serialNumber + 10) % 3],
+        referenceNo: `BK-202611-${pad3(m.serialNumber)}`,
+        receiptNo: `RCP-2026-${rcpCounter++}`,
+        remarks: isPending ? 'বিকাশ মার্চেন্ট পেমেন্ট স্লিপ সংযুক্ত' : 'নিয়মিত মাসিক কিস্তি',
+        attachmentName: isPending ? `slip_${m.id}_nov2026.jpg` : undefined,
+        submittedBy: m.id,
+      });
+    }
+  }
+
+  // 3. Investments, Returns & Expenses
+  entries.push(
+    {
+      id: `TXN-${txnCounter++}`,
+      date: '2026-03-18',
+      category: 'INVESTMENT_OUT',
+      debit: 950000,
+      credit: 0,
+      description: 'বিনিয়োগ মূলধন প্রদান — পূর্বাচল গ্রিন ভ্যালি ল্যান্ড শেয়ার (INV-101)',
+      investmentId: 'INV-101',
+      approvedBy: 'মোঃ তানভীর মোস্তফা (সভাপতি)',
+      status: 'APPROVED',
+      paymentMethod: 'BANK_TRANSFER',
+      referenceNo: 'RTGS-20260318-101',
+      receiptNo: `RCP-2026-${rcpCounter++}`,
+    },
+    {
+      id: `TXN-${txnCounter++}`,
+      date: '2026-04-10',
+      category: 'INVESTMENT_OUT',
+      debit: 550000,
+      credit: 0,
+      description: 'বিনিয়োগ মূলধন প্রদান — পদ্মা এগ্রো ডেইরি ও ফিশারিজ প্রকল্প (INV-102)',
+      investmentId: 'INV-102',
+      approvedBy: 'মোঃ তানভীর মোস্তফা (সভাপতি)',
+      status: 'APPROVED',
+      paymentMethod: 'BANK_TRANSFER',
+      referenceNo: 'BEFTN-20260410-102',
+      receiptNo: `RCP-2026-${rcpCounter++}`,
+    },
+    {
+      id: `TXN-${txnCounter++}`,
+      date: '2026-05-15',
+      category: 'INVESTMENT_OUT',
+      debit: 420000,
+      credit: 0,
+      description: 'বিনিয়োগ মূলধন প্রদান — মৌসুমি পাইকারি চাল ও ভোজ্যতেল ট্রেডিং (INV-103)',
+      investmentId: 'INV-103',
+      approvedBy: 'মোঃ রাশেদুল করিম (কোষাধ্যক্ষ)',
+      status: 'APPROVED',
+      paymentMethod: 'BANK_TRANSFER',
+      referenceNo: 'NPSB-20260515-103',
+      receiptNo: `RCP-2026-${rcpCounter++}`,
+    },
+    {
+      id: `TXN-${txnCounter++}`,
+      date: '2026-07-02',
+      category: 'INVESTMENT_OUT',
+      debit: 320000,
+      credit: 0,
+      description: 'বিনিয়োগ মূলধন প্রদান — স্মার্ট পোল্ট্রি ও ফিড ডিস্ট্রিবিউশন (INV-104)',
+      investmentId: 'INV-104',
+      approvedBy: 'মোঃ তানভীর মোস্তফা (সভাপতি)',
+      status: 'APPROVED',
+      paymentMethod: 'BANK_TRANSFER',
+      referenceNo: 'RTGS-20260702-104',
+      receiptNo: `RCP-2026-${rcpCounter++}`,
+    },
+    {
+      id: `TXN-${txnCounter++}`,
+      date: '2026-09-20',
+      category: 'INVESTMENT_RETURN',
+      debit: 0,
+      credit: 118500,
+      description: 'মুনাফা ও মূলধন রিটার্ন — মৌসুমি পাইকারি চাল ট্রেডিং (INV-103)',
+      investmentId: 'INV-103',
+      approvedBy: 'মোঃ রাশেদুল করিম (কোষাধ্যক্ষ)',
+      status: 'APPROVED',
+      paymentMethod: 'BANK_TRANSFER',
+      referenceNo: 'RET-20260920-103',
+      receiptNo: `RCP-2026-${rcpCounter++}`,
+    },
+    {
+      id: `TXN-${txnCounter++}`,
+      date: '2026-10-15',
+      category: 'INVESTMENT_RETURN',
+      debit: 0,
+      credit: 145000,
+      description: 'ত্রৈমাসিক মুনাফা প্রাপ্তি — পদ্মা এগ্রো ডেইরি ও ফিশারিজ (INV-102)',
+      investmentId: 'INV-102',
+      approvedBy: 'মোঃ রাশেদুল করিম (কোষাধ্যক্ষ)',
+      status: 'APPROVED',
+      paymentMethod: 'BANK_TRANSFER',
+      referenceNo: 'RET-20261015-102',
+      receiptNo: `RCP-2026-${rcpCounter++}`,
+    },
+    {
+      id: `TXN-${txnCounter++}`,
+      date: '2026-10-28',
+      category: 'INVESTMENT_RETURN',
+      debit: 0,
+      credit: 64000,
+      description: 'লভ্যাংশ প্রাপ্তি — স্মার্ট পোল্ট্রি ও ফিড ডিস্ট্রিবিউশন (INV-104)',
+      investmentId: 'INV-104',
+      approvedBy: 'মোঃ রাশেদুল করিম (কোষাধ্যক্ষ)',
+      status: 'APPROVED',
+      paymentMethod: 'BANK_TRANSFER',
+      referenceNo: 'RET-20261028-104',
+      receiptNo: `RCP-2026-${rcpCounter++}`,
+    },
+    {
+      id: `TXN-${txnCounter++}`,
+      date: '2026-06-25',
+      category: 'EXPENSE',
+      debit: 24500,
+      credit: 0,
+      description: 'অর্ধ-বার্ষিক সাধারণ সভা (AGM) ভেন্যু ও আপ্যায়ন ব্যয়',
+      approvedBy: 'মোঃ তানভীর মোস্তফা (সভাপতি)',
+      status: 'APPROVED',
+      paymentMethod: 'CASH',
+      referenceNo: 'EXP-202606-01',
+      receiptNo: `RCP-2026-${rcpCounter++}`,
+    },
+    {
+      id: `TXN-${txnCounter++}`,
+      date: '2026-09-05',
+      category: 'EXPENSE',
+      debit: 14200,
+      credit: 0,
+      description: 'সমিতি নিবন্ধন নবায়ন, অডিট স্টেশনারি ও সার্ভার হোস্টিং ব্যয়',
+      approvedBy: 'মোঃ রাশেদুল করিম (কোষাধ্যক্ষ)',
+      status: 'APPROVED',
+      paymentMethod: 'BANK_TRANSFER',
+      referenceNo: 'EXP-202609-02',
+      receiptNo: `RCP-2026-${rcpCounter++}`,
+    },
+    {
+      id: `TXN-${txnCounter++}`,
+      date: '2026-11-12',
+      category: 'EXPENSE',
+      debit: 18500,
+      credit: 0,
+      description: 'বার্ষিক অডিট রিপোর্ট প্রিন্টিং ও লিগ্যাল কনসালটেন্সি ফি (ভাউচার #৪০৯)',
+      approvedBy: 'অপেক্ষমাণ',
+      status: 'PENDING',
+      paymentMethod: 'BANK_TRANSFER',
+      referenceNo: 'EXP-202611-03',
+      receiptNo: `RCP-2026-${rcpCounter++}`,
+      submittedBy: 'FVC-003',
+    }
+  );
+
+  return entries;
+}
+
 export const INITIAL_INVESTMENTS: InvestmentProject[] = [
   {
     id: 'INV-101',

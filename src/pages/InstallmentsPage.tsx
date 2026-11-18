@@ -101,7 +101,7 @@ export const InstallmentsPage: React.FC<InstallmentsPageProps> = ({
         (e) =>
           e.memberId === selectedMemberId &&
           e.category === 'INSTALLMENT' &&
-          e.monthKey === monthKey &&
+          (e.monthKey === monthKey || (e.coveredMonths?.includes(monthKey) ?? false)) &&
           e.status !== 'REJECTED'
       );
       if (existing) {
@@ -204,7 +204,10 @@ export const InstallmentsPage: React.FC<InstallmentsPageProps> = ({
           .reduce((s, e) => s + e.credit, 0);
         const installmentEntries = entries.filter((e) => e.category === 'INSTALLMENT');
         const installmentPaid = installmentEntries.reduce((s, e) => s + e.credit, 0);
-        const installmentCount = installmentEntries.length;
+        const installmentCount = installmentEntries.reduce(
+          (s, e) => s + (e.monthsCount ?? 1),
+          0
+        );
         const dueMonths = Math.max(0, TOTAL_EXPECTED_MONTHS_YTD - installmentCount);
         const dueAmount = dueMonths * MONTHLY_INSTALLMENT_AMOUNT;
         return {

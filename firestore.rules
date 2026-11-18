@@ -1,0 +1,470 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Hardened Global Primitives ---
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isActiveUser() {
+      return isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function isVerifiedEmailUser() {
+      return isActiveUser() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isActiveUser() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedEmailUser() && request.auth.token.email == 'tanvirmostofa2010.maxbtl@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin()
+        || (isActiveUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function isMemberOwner(data) {
+      return isActiveUser() && (
+        ('ownerUid' in data && data.ownerUid == request.auth.uid)
+        || ('memberOwnerUid' in data && data.memberOwnerUid == request.auth.uid)
+        || (isVerifiedEmailUser() && 'memberOwnerEmail' in data && data.memberOwnerEmail == request.auth.token.email)
+      );
+    }
+
+    // --- Validation Blueprints ---
+    function isValidUserAccount(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'role', 'linkedMemberId', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'userId', 'email', 'displayName', 'role', 'linkedMemberId', 'createdAt', 'updatedAt'])
+        && data.uid == userId
+        && isValidId(data.uid)
+        && (!('userId' in data) || (data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 64))
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 150
+        && data.role in ['SUPER_ADMIN', 'TREASURER', 'MEMBER']
+        && isValidId(data.linkedMemberId) && data.linkedMemberId.size() <= 32
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMemberPublic(data, memberId) {
+      return data.keys().hasAll(['id', 'serialNumber', 'fullName', 'occupation', 'admissionDate', 'status', 'kycStatus', 'avatarColor', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'serialNumber', 'fullName', 'occupation', 'admissionDate', 'status', 'kycStatus', 'committeeRole', 'avatarColor', 'ownerUid', 'updatedAt'])
+        && data.id == memberId
+        && isValidId(data.id) && data.id.size() <= 32
+        && data.serialNumber is int && data.serialNumber >= 1 && data.serialNumber <= 999
+        && data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 150
+        && data.occupation is string && data.occupation.size() >= 1 && data.occupation.size() <= 150
+        && data.admissionDate is string && data.admissionDate.size() >= 4 && data.admissionDate.size() <= 32
+        && data.status in ['ACTIVE', 'INACTIVE']
+        && data.kycStatus in ['VERIFIED', 'PENDING']
+        && (!('committeeRole' in data) || (data.committeeRole is string && data.committeeRole.size() <= 120))
+        && data.avatarColor is string && data.avatarColor.size() >= 3 && data.avatarColor.size() <= 32
+        && (!('ownerUid' in data) || (data.ownerUid is string && data.ownerUid.size() <= 128))
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMemberPrivate(data, memberId) {
+      return data.keys().hasAll(['id', 'fatherName', 'motherName', 'dob', 'mobile', 'email', 'presentAddress', 'permanentAddress', 'nomineeName', 'nomineeRelation', 'nomineeAge', 'nomineeNid', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'ownerUid', 'memberOwnerEmail', 'fatherName', 'motherName', 'dob', 'mobile', 'email', 'presentAddress', 'permanentAddress', 'nomineeName', 'nomineeRelation', 'nomineeAge', 'nomineeNid', 'updatedAt'])
+        && data.id == memberId
+        && isValidId(data.id) && data.id.size() <= 32
+        && (!('ownerUid' in data) || (data.ownerUid is string && data.ownerUid.size() <= 128))
+        && (!('memberOwnerEmail' in data) || (data.memberOwnerEmail is string && data.memberOwnerEmail.size() <= 200))
+        && data.fatherName is string && data.fatherName.size() >= 1 && data.fatherName.size() <= 150
+        && data.motherName is string && data.motherName.size() >= 1 && data.motherName.size() <= 150
+        && data.dob is string && data.dob.size() >= 4 && data.dob.size() <= 32
+        && data.mobile is string && data.mobile.size() >= 6 && data.mobile.size() <= 32
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.presentAddress is string && data.presentAddress.size() <= 300
+        && data.permanentAddress is string && data.permanentAddress.size() <= 300
+        && data.nomineeName is string && data.nomineeName.size() <= 150
+        && data.nomineeRelation is string && data.nomineeRelation.size() <= 64
+        && data.nomineeAge is int && data.nomineeAge >= 1 && data.nomineeAge <= 120
+        && data.nomineeNid is string && data.nomineeNid.size() <= 64
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidLedgerEntry(data, entryId) {
+      return data.keys().hasAll(['id', 'date', 'category', 'debit', 'credit', 'description', 'approvedBy', 'status', 'authorUid', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'id', 'date', 'category', 'debit', 'credit', 'description', 'memberId', 'memberOwnerUid', 'memberOwnerEmail',
+          'investmentId', 'approvedBy', 'status', 'paymentSubCategory', 'monthKey', 'monthLabel',
+          'monthsCount', 'coveredMonths', 'paymentMethod', 'referenceNo', 'receiptNo', 'remarks',
+          'attachmentName', 'submittedBy', 'rejectionReason', 'authorUid', 'createdAt', 'updatedAt'
+        ])
+        && data.id == entryId
+        && isValidId(data.id) && data.id.size() <= 64
+        && data.date is string && data.date.size() >= 4 && data.date.size() <= 32
+        && data.category in ['ADMISSION', 'INSTALLMENT', 'INVESTMENT_OUT', 'INVESTMENT_RETURN', 'EXPENSE', 'DIVIDEND_PAYOUT']
+        && data.debit is number && data.debit >= 0
+        && data.credit is number && data.credit >= 0
+        && data.description is string && data.description.size() >= 1 && data.description.size() <= 500
+        && (!('memberId' in data) || (data.memberId is string && data.memberId.size() <= 32))
+        && (!('memberOwnerUid' in data) || (data.memberOwnerUid is string && data.memberOwnerUid.size() <= 128))
+        && (!('memberOwnerEmail' in data) || (data.memberOwnerEmail is string && data.memberOwnerEmail.size() <= 200))
+        && (!('investmentId' in data) || (data.investmentId is string && data.investmentId.size() <= 32))
+        && data.approvedBy is string && data.approvedBy.size() >= 1 && data.approvedBy.size() <= 150
+        && data.status in ['PENDING', 'APPROVED', 'REJECTED']
+        && (!('paymentSubCategory' in data) || (data.paymentSubCategory is string && data.paymentSubCategory.size() <= 32))
+        && (!('monthKey' in data) || (data.monthKey is string && data.monthKey.size() <= 32))
+        && (!('monthLabel' in data) || (data.monthLabel is string && data.monthLabel.size() <= 64))
+        && (!('monthsCount' in data) || (data.monthsCount is int && data.monthsCount >= 1 && data.monthsCount <= 12))
+        && (!('coveredMonths' in data) || (data.coveredMonths is list && data.coveredMonths.size() <= 12 && (data.coveredMonths.size() == 0 || data.coveredMonths[0] is string)))
+        && (!('paymentMethod' in data) || (data.paymentMethod is string && data.paymentMethod.size() <= 32))
+        && (!('referenceNo' in data) || (data.referenceNo is string && data.referenceNo.size() <= 80))
+        && (!('receiptNo' in data) || (data.receiptNo is string && data.receiptNo.size() <= 80))
+        && (!('remarks' in data) || (data.remarks is string && data.remarks.size() <= 400))
+        && (!('attachmentName' in data) || (data.attachmentName is string && data.attachmentName.size() <= 200))
+        && (!('submittedBy' in data) || (data.submittedBy is string && data.submittedBy.size() <= 32))
+        && (!('rejectionReason' in data) || (data.rejectionReason is string && data.rejectionReason.size() <= 300))
+        && data.authorUid is string && isValidId(data.authorUid)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidInvestment(data, invId) {
+      return data.keys().hasAll(['id', 'name', 'category', 'description', 'investmentDate', 'capitalInvested', 'durationMonths', 'expectedReturnRate', 'realizedReturn', 'unrealizedValuation', 'status', 'inChargeName', 'inChargeMemberId', 'inChargeMobile', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'name', 'category', 'description', 'investmentDate', 'capitalInvested', 'durationMonths', 'expectedReturnRate', 'realizedReturn', 'unrealizedValuation', 'status', 'inChargeName', 'inChargeMemberId', 'inChargeMobile', 'updatedAt'])
+        && data.id == invId
+        && isValidId(data.id) && data.id.size() <= 32
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && data.category is string && data.category.size() >= 1 && data.category.size() <= 80
+        && data.description is string && data.description.size() <= 1000
+        && data.investmentDate is string && data.investmentDate.size() <= 32
+        && data.capitalInvested is number && data.capitalInvested >= 0
+        && data.durationMonths is int && data.durationMonths >= 1
+        && data.expectedReturnRate is number && data.expectedReturnRate >= 0
+        && data.realizedReturn is number && data.realizedReturn >= 0
+        && data.unrealizedValuation is number && data.unrealizedValuation >= 0
+        && data.status in ['ACTIVE', 'MATURED', 'ON_HOLD']
+        && data.inChargeName is string && data.inChargeName.size() <= 150
+        && data.inChargeMemberId is string && data.inChargeMemberId.size() <= 32
+        && data.inChargeMobile is string && data.inChargeMobile.size() <= 32
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidForumPost(data, postId) {
+      return data.keys().hasAll(['id', 'authorId', 'authorUid', 'title', 'category', 'content', 'createdAtLabel', 'likes', 'isPinned', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'authorId', 'authorUid', 'title', 'category', 'content', 'attachmentName', 'createdAtLabel', 'likes', 'isPinned', 'status', 'rejectionReason', 'createdAt', 'updatedAt'])
+        && data.id == postId
+        && isValidId(data.id) && data.id.size() <= 64
+        && data.authorId is string && data.authorId.size() >= 1 && data.authorId.size() <= 32
+        && data.authorUid is string && isValidId(data.authorUid)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 250
+        && data.category is string && data.category.size() >= 1 && data.category.size() <= 64
+        && data.content is string && data.content.size() >= 1 && data.content.size() <= 4000
+        && (!('attachmentName' in data) || (data.attachmentName is string && data.attachmentName.size() <= 200))
+        && data.createdAtLabel is string && data.createdAtLabel.size() >= 1 && data.createdAtLabel.size() <= 64
+        && data.likes is int && data.likes >= 0
+        && data.isPinned is bool
+        && data.status in ['PENDING', 'APPROVED', 'REJECTED']
+        && (!('rejectionReason' in data) || (data.rejectionReason is string && data.rejectionReason.size() <= 300))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidForumComment(data, commentId, postId) {
+      return data.keys().hasAll(['id', 'postId', 'authorId', 'authorUid', 'content', 'createdAtLabel', 'createdAt'])
+        && data.keys().hasOnly(['id', 'postId', 'parentCommentId', 'authorId', 'authorUid', 'content', 'createdAtLabel', 'createdAt'])
+        && data.id == commentId
+        && isValidId(data.id) && data.id.size() <= 64
+        && data.postId == postId
+        && (!('parentCommentId' in data) || (data.parentCommentId is string && data.parentCommentId.size() <= 64))
+        && data.authorId is string && data.authorId.size() >= 1 && data.authorId.size() <= 32
+        && data.authorUid is string && isValidId(data.authorUid)
+        && data.content is string && data.content.size() >= 1 && data.content.size() <= 1500
+        && data.createdAtLabel is string && data.createdAtLabel.size() >= 1 && data.createdAtLabel.size() <= 64
+        && data.createdAt is timestamp;
+    }
+
+    function isValidForumLike(data, userId) {
+      return data.keys().hasAll(['uid', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'createdAt'])
+        && data.uid == userId
+        && isValidId(data.uid)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidNotice(data, noticeId) {
+      return data.keys().hasAll(['id', 'title', 'details', 'priority', 'expiresAt', 'isPinned', 'createdAt', 'createdBy', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'title', 'details', 'priority', 'expiresAt', 'isPinned', 'createdAt', 'createdBy', 'updatedAt'])
+        && data.id == noticeId
+        && isValidId(data.id) && data.id.size() <= 64
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 250
+        && data.details is string && data.details.size() >= 1 && data.details.size() <= 2000
+        && data.priority in ['URGENT', 'NORMAL']
+        && data.expiresAt is string && data.expiresAt.size() <= 32
+        && data.isPinned is bool
+        && data.createdAt is string && data.createdAt.size() <= 32
+        && data.createdBy is string && data.createdBy.size() <= 150
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAuditLog(data, logId) {
+      return data.keys().hasAll(['id', 'timestamp', 'actorName', 'actorId', 'actorUid', 'actorRole', 'action', 'target', 'previousValue', 'newValue', 'txHash', 'createdAt'])
+        && data.keys().hasOnly(['id', 'timestamp', 'actorName', 'actorId', 'actorUid', 'actorRole', 'action', 'target', 'previousValue', 'newValue', 'txHash', 'createdAt'])
+        && data.id == logId
+        && isValidId(data.id) && data.id.size() <= 64
+        && data.timestamp is string && data.timestamp.size() <= 64
+        && data.actorName is string && data.actorName.size() <= 150
+        && data.actorId is string && data.actorId.size() <= 32
+        && data.actorUid is string && isValidId(data.actorUid)
+        && data.actorRole in ['SUPER_ADMIN', 'TREASURER', 'MEMBER']
+        && data.action is string && data.action.size() <= 200
+        && data.target is string && data.target.size() <= 200
+        && data.previousValue is string && data.previousValue.size() <= 300
+        && data.newValue is string && data.newValue.size() <= 300
+        && data.txHash is string && data.txHash.size() <= 64
+        && data.createdAt is timestamp;
+    }
+
+    function isValidSummary(data) {
+      return data.keys().hasAll(['totalMembers', 'collectedCapital', 'activeInvestmentOut', 'realizedReturn', 'operatingExpense', 'netProfit', 'updatedAt'])
+        && data.keys().hasOnly(['totalMembers', 'collectedCapital', 'activeInvestmentOut', 'realizedReturn', 'operatingExpense', 'netProfit', 'updatedAt'])
+        && data.totalMembers is int && data.totalMembers >= 0
+        && data.collectedCapital is number && data.collectedCapital >= 0
+        && data.activeInvestmentOut is number && data.activeInvestmentOut >= 0
+        && data.realizedReturn is number && data.realizedReturn >= 0
+        && data.operatingExpense is number && data.operatingExpense >= 0
+        && data.netProfit is number
+        && data.updatedAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+
+    // Startup connection check document
+    match /test/connection {
+      allow get: if isSignedIn();
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isValidId(userId)
+        && isActiveUser()
+        && isValidUserAccount(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (isOwner(userId) && incoming().role == 'MEMBER')
+        );
+      allow update: if isValidId(userId)
+        && isActiveUser()
+        && isValidUserAccount(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            isOwner(userId)
+            && incoming().role == existing().role
+            && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'linkedMemberId', 'updatedAt'])
+          )
+        );
+      allow delete: if isAdmin();
+    }
+
+    match /admins/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isAdmin()
+        && isValidId(userId)
+        && isValidUserAccount(incoming(), userId)
+        && incoming().role in ['SUPER_ADMIN', 'TREASURER'];
+      allow update: if isAdmin()
+        && isValidId(userId)
+        && isValidUserAccount(incoming(), userId)
+        && incoming().role in ['SUPER_ADMIN', 'TREASURER'];
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    match /members_public/{memberId} {
+      allow get: if isValidId(memberId) && isActiveUser();
+      allow list: if isActiveUser();
+      allow create: if isValidId(memberId)
+        && isAdmin()
+        && isValidMemberPublic(incoming(), memberId)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(memberId)
+        && isAdmin()
+        && isValidMemberPublic(incoming(), memberId)
+        && incoming().id == existing().id
+        && incoming().updatedAt == request.time;
+      allow delete: if isValidId(memberId) && isAdmin();
+    }
+
+    match /members_private/{memberId} {
+      allow get: if isValidId(memberId) && (isAdmin() || isMemberOwner(existing()));
+      allow list: if isAdmin() || isMemberOwner(existing());
+      allow create: if isValidId(memberId)
+        && isAdmin()
+        && isValidMemberPrivate(incoming(), memberId)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(memberId)
+        && isValidMemberPrivate(incoming(), memberId)
+        && incoming().id == existing().id
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            isMemberOwner(existing())
+            && incoming().diff(existing()).affectedKeys().hasOnly(['mobile', 'presentAddress', 'updatedAt'])
+          )
+        );
+      allow delete: if isValidId(memberId) && isAdmin();
+    }
+
+    match /ledger/{entryId} {
+      allow get: if isValidId(entryId) && (isAdmin() || (isActiveUser() && existing().authorUid == request.auth.uid) || isMemberOwner(existing()));
+      allow list: if isAdmin() || (isActiveUser() && existing().authorUid == request.auth.uid) || isMemberOwner(existing());
+      allow create: if isValidId(entryId)
+        && isActiveUser()
+        && isValidLedgerEntry(incoming(), entryId)
+        && incoming().authorUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (isAdmin() || incoming().status == 'PENDING');
+      allow update: if isValidId(entryId)
+        && isAdmin()
+        && isValidLedgerEntry(incoming(), entryId)
+        && incoming().id == existing().id
+        && incoming().authorUid == existing().authorUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+      allow delete: if isValidId(entryId) && isAdmin();
+    }
+
+    match /investments/{investmentId} {
+      allow get: if isValidId(investmentId) && isActiveUser();
+      allow list: if isActiveUser();
+      allow create: if isValidId(investmentId)
+        && isAdmin()
+        && isValidInvestment(incoming(), investmentId)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(investmentId)
+        && isAdmin()
+        && isValidInvestment(incoming(), investmentId)
+        && incoming().id == existing().id
+        && incoming().updatedAt == request.time;
+      allow delete: if isValidId(investmentId) && isAdmin();
+    }
+
+    match /forum_posts/{postId} {
+      allow get: if isValidId(postId) && (isAdmin() || (isActiveUser() && (existing().status == 'APPROVED' || existing().authorUid == request.auth.uid)));
+      allow list: if isAdmin() || (isActiveUser() && (existing().status == 'APPROVED' || existing().authorUid == request.auth.uid));
+      allow create: if isValidId(postId)
+        && isActiveUser()
+        && isValidForumPost(incoming(), postId)
+        && incoming().authorUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && incoming().likes == 0
+        && (isAdmin() || (incoming().status == 'PENDING' && incoming().isPinned == false));
+      allow update: if isValidId(postId)
+        && isActiveUser()
+        && isValidForumPost(incoming(), postId)
+        && incoming().id == existing().id
+        && incoming().authorUid == existing().authorUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            existing().status == 'APPROVED'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'updatedAt'])
+            && (
+              (incoming().likes == existing().likes + 1 && existsAfter(/databases/$(database)/documents/forum_posts/$(postId)/likes/$(request.auth.uid)))
+              || (incoming().likes == existing().likes - 1 && !existsAfter(/databases/$(database)/documents/forum_posts/$(postId)/likes/$(request.auth.uid)))
+            )
+          )
+        );
+      allow delete: if isValidId(postId) && isAdmin();
+
+      match /comments/{commentId} {
+        allow get: if isValidId(postId) && isValidId(commentId) && isActiveUser()
+          && exists(/databases/$(database)/documents/forum_posts/$(postId));
+        allow list: if isActiveUser() && existing().postId == postId;
+        allow create: if isValidId(postId) && isValidId(commentId)
+          && isActiveUser()
+          && exists(/databases/$(database)/documents/forum_posts/$(postId))
+          && get(/databases/$(database)/documents/forum_posts/$(postId)).data.status == 'APPROVED'
+          && isValidForumComment(incoming(), commentId, postId)
+          && incoming().authorUid == request.auth.uid
+          && incoming().createdAt == request.time;
+        allow update: if false;
+        allow delete: if isValidId(postId) && isValidId(commentId) && isAdmin();
+      }
+
+      match /likes/{userId} {
+        allow get: if isValidId(postId) && isValidId(userId) && (isOwner(userId) || isAdmin());
+        allow list: if isAdmin();
+        allow create: if isValidId(postId) && isValidId(userId)
+          && isActiveUser()
+          && isOwner(userId)
+          && exists(/databases/$(database)/documents/forum_posts/$(postId))
+          && isValidForumLike(incoming(), userId)
+          && incoming().createdAt == request.time;
+        allow delete: if isValidId(postId) && isValidId(userId) && (isOwner(userId) || isAdmin());
+      }
+    }
+
+    match /notices/{noticeId} {
+      allow get: if isValidId(noticeId) && isActiveUser();
+      allow list: if isActiveUser();
+      allow create: if isValidId(noticeId)
+        && isAdmin()
+        && isValidNotice(incoming(), noticeId)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(noticeId)
+        && isAdmin()
+        && isValidNotice(incoming(), noticeId)
+        && incoming().id == existing().id
+        && incoming().updatedAt == request.time;
+      allow delete: if isValidId(noticeId) && isAdmin();
+    }
+
+    match /audit_logs/{logId} {
+      allow get: if isValidId(logId) && isAdmin();
+      allow list: if isAdmin();
+      allow create: if isValidId(logId)
+        && isActiveUser()
+        && isValidAuditLog(incoming(), logId)
+        && incoming().actorUid == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    match /cooperative_summary/{docId} {
+      allow get: if isValidId(docId) && isActiveUser();
+      allow list: if isActiveUser();
+      allow create, update: if isValidId(docId)
+        && isAdmin()
+        && isValidSummary(incoming())
+        && incoming().updatedAt == request.time;
+      allow delete: if isValidId(docId) && isAdmin();
+    }
+  }
+}

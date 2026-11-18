@@ -1,0 +1,270 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Authenticated Firebase user profile and linked FVC member role.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 150 },
+        "role": { "type": "string", "enum": ["SUPER_ADMIN", "TREASURER", "MEMBER"] },
+        "linkedMemberId": { "type": "string", "minLength": 1, "maxLength": 32, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "displayName", "role", "linkedMemberId", "createdAt", "updatedAt"]
+    },
+    "MemberPublic": {
+      "title": "MemberPublic",
+      "description": "Public cooperative directory record for each of the 111 members (no PII).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 32, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "serialNumber": { "type": "number" },
+        "fullName": { "type": "string", "minLength": 1, "maxLength": 150 },
+        "occupation": { "type": "string", "minLength": 1, "maxLength": 150 },
+        "admissionDate": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"] },
+        "kycStatus": { "type": "string", "enum": ["VERIFIED", "PENDING"] },
+        "committeeRole": { "type": "string", "maxLength": 120 },
+        "avatarColor": { "type": "string", "maxLength": 32 },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "serialNumber", "fullName", "occupation", "admissionDate", "status", "kycStatus", "avatarColor", "updatedAt"]
+    },
+    "MemberPrivate": {
+      "title": "MemberPrivate",
+      "description": "Protected PII and nominee details restricted to the owning member or admins.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 32, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "memberOwnerEmail": { "type": "string", "maxLength": 200 },
+        "fatherName": { "type": "string", "minLength": 1, "maxLength": 150 },
+        "motherName": { "type": "string", "minLength": 1, "maxLength": 150 },
+        "dob": { "type": "string", "maxLength": 32 },
+        "mobile": { "type": "string", "minLength": 6, "maxLength": 32 },
+        "email": { "type": "string", "maxLength": 200 },
+        "presentAddress": { "type": "string", "maxLength": 300 },
+        "permanentAddress": { "type": "string", "maxLength": 300 },
+        "nomineeName": { "type": "string", "maxLength": 150 },
+        "nomineeRelation": { "type": "string", "maxLength": 64 },
+        "nomineeAge": { "type": "number" },
+        "nomineeNid": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "fatherName", "motherName", "dob", "mobile", "email", "presentAddress", "permanentAddress", "nomineeName", "nomineeRelation", "nomineeAge", "nomineeNid", "updatedAt"]
+    },
+    "LedgerEntry": {
+      "title": "LedgerEntry",
+      "description": "Double-entry financial transaction record for admissions, installments, investments, returns, expenses, and dividends.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "date": { "type": "string", "maxLength": 32 },
+        "category": { "type": "string", "enum": ["ADMISSION", "INSTALLMENT", "INVESTMENT_OUT", "INVESTMENT_RETURN", "EXPENSE", "DIVIDEND_PAYOUT"] },
+        "debit": { "type": "number" },
+        "credit": { "type": "number" },
+        "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "memberId": { "type": "string", "maxLength": 32 },
+        "memberOwnerUid": { "type": "string", "maxLength": 128 },
+        "memberOwnerEmail": { "type": "string", "maxLength": 200 },
+        "investmentId": { "type": "string", "maxLength": 32 },
+        "approvedBy": { "type": "string", "maxLength": 150 },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "paymentSubCategory": { "type": "string", "maxLength": 32 },
+        "monthKey": { "type": "string", "maxLength": 32 },
+        "monthLabel": { "type": "string", "maxLength": 64 },
+        "monthsCount": { "type": "number" },
+        "coveredMonths": { "type": "array" },
+        "paymentMethod": { "type": "string", "maxLength": 32 },
+        "referenceNo": { "type": "string", "maxLength": 80 },
+        "receiptNo": { "type": "string", "maxLength": 80 },
+        "remarks": { "type": "string", "maxLength": 400 },
+        "attachmentName": { "type": "string", "maxLength": 200 },
+        "submittedBy": { "type": "string", "maxLength": 32 },
+        "rejectionReason": { "type": "string", "maxLength": 300 },
+        "authorUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "date", "category", "debit", "credit", "description", "approvedBy", "status", "authorUid", "createdAt", "updatedAt"]
+    },
+    "InvestmentProject": {
+      "title": "InvestmentProject",
+      "description": "Cooperative investment venture with capital, realized return, and unrealized valuation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 32, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "category": { "type": "string", "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "investmentDate": { "type": "string", "maxLength": 32 },
+        "capitalInvested": { "type": "number" },
+        "durationMonths": { "type": "number" },
+        "expectedReturnRate": { "type": "number" },
+        "realizedReturn": { "type": "number" },
+        "unrealizedValuation": { "type": "number" },
+        "status": { "type": "string", "enum": ["ACTIVE", "MATURED", "ON_HOLD"] },
+        "inChargeName": { "type": "string", "maxLength": 150 },
+        "inChargeMemberId": { "type": "string", "maxLength": 32 },
+        "inChargeMobile": { "type": "string", "maxLength": 32 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "category", "description", "investmentDate", "capitalInvested", "durationMonths", "expectedReturnRate", "realizedReturn", "unrealizedValuation", "status", "inChargeName", "inChargeMemberId", "inChargeMobile", "updatedAt"]
+    },
+    "ForumPost": {
+      "title": "ForumPost",
+      "description": "Discussion post or proposal submitted by a member for admin approval and community engagement.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorId": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "authorUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 250 },
+        "category": { "type": "string", "maxLength": 64 },
+        "content": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "attachmentName": { "type": "string", "maxLength": 200 },
+        "createdAtLabel": { "type": "string", "maxLength": 64 },
+        "likes": { "type": "number" },
+        "isPinned": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "rejectionReason": { "type": "string", "maxLength": 300 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "authorId", "authorUid", "title", "category", "content", "createdAtLabel", "likes", "isPinned", "status", "createdAt", "updatedAt"]
+    },
+    "ForumComment": {
+      "title": "ForumComment",
+      "description": "Comment or reply attached to a forum post.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "postId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "parentCommentId": { "type": "string", "maxLength": 64 },
+        "authorId": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "authorUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "content": { "type": "string", "minLength": 1, "maxLength": 1500 },
+        "createdAtLabel": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "postId", "authorId", "authorUid", "content", "createdAtLabel", "createdAt"]
+    },
+    "ForumLike": {
+      "title": "ForumLike",
+      "description": "Per-user like marker inside a forum post.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "createdAt"]
+    },
+    "NoticeItem": {
+      "title": "NoticeItem",
+      "description": "Official cooperative announcement or emergency ticker notice.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 250 },
+        "details": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["URGENT", "NORMAL"] },
+        "expiresAt": { "type": "string", "maxLength": 32 },
+        "isPinned": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 32 },
+        "createdBy": { "type": "string", "maxLength": 150 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "details", "priority", "expiresAt", "isPinned", "createdAt", "createdBy", "updatedAt"]
+    },
+    "AuditLogEntry": {
+      "title": "AuditLogEntry",
+      "description": "Append-only financial and administrative audit trail record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "timestamp": { "type": "string", "maxLength": 64 },
+        "actorName": { "type": "string", "maxLength": 150 },
+        "actorId": { "type": "string", "maxLength": 32 },
+        "actorUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "actorRole": { "type": "string", "enum": ["SUPER_ADMIN", "TREASURER", "MEMBER"] },
+        "action": { "type": "string", "maxLength": 200 },
+        "target": { "type": "string", "maxLength": 200 },
+        "previousValue": { "type": "string", "maxLength": 300 },
+        "newValue": { "type": "string", "maxLength": 300 },
+        "txHash": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "timestamp", "actorName", "actorId", "actorUid", "actorRole", "action", "target", "previousValue", "newValue", "txHash", "createdAt"]
+    },
+    "CooperativeSummary": {
+      "title": "CooperativeSummary",
+      "description": "Aggregate cooperative statistics safe for verified members.",
+      "type": "object",
+      "properties": {
+        "totalMembers": { "type": "number" },
+        "collectedCapital": { "type": "number" },
+        "activeInvestmentOut": { "type": "number" },
+        "realizedReturn": { "type": "number" },
+        "operatingExpense": { "type": "number" },
+        "netProfit": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["totalMembers", "collectedCapital", "activeInvestmentOut", "realizedReturn", "operatingExpense", "netProfit", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "User account role & member linkage."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "Explicit admin membership registry."
+    },
+    "/members_public/{memberId}": {
+      "schema": { "$ref": "#/entities/MemberPublic" },
+      "description": "Non-PII directory records for the 111 cooperative members."
+    },
+    "/members_private/{memberId}": {
+      "schema": { "$ref": "#/entities/MemberPrivate" },
+      "description": "PII and nominee details isolated from general directory reads."
+    },
+    "/ledger/{entryId}": {
+      "schema": { "$ref": "#/entities/LedgerEntry" },
+      "description": "Double-entry financial ledger records."
+    },
+    "/investments/{investmentId}": {
+      "schema": { "$ref": "#/entities/InvestmentProject" },
+      "description": "Cooperative investment projects."
+    },
+    "/forum_posts/{postId}": {
+      "schema": { "$ref": "#/entities/ForumPost" },
+      "description": "Member forum discussions and proposals."
+    },
+    "/forum_posts/{postId}/comments/{commentId}": {
+      "schema": { "$ref": "#/entities/ForumComment" },
+      "description": "Comments and nested replies on forum posts."
+    },
+    "/forum_posts/{postId}/likes/{userId}": {
+      "schema": { "$ref": "#/entities/ForumLike" },
+      "description": "Per-user like markers for atomic likes."
+    },
+    "/notices/{noticeId}": {
+      "schema": { "$ref": "#/entities/NoticeItem" },
+      "description": "Official notices and emergency announcements."
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLogEntry" },
+      "description": "Append-only audit trail."
+    },
+    "/cooperative_summary/{docId}": {
+      "schema": { "$ref": "#/entities/CooperativeSummary" },
+      "description": "Aggregate cooperative metrics."
+    }
+  }
+}

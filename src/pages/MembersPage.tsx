@@ -84,7 +84,7 @@ export const MembersPage: React.FC<MembersPageProps> = ({
         stat.admissionPaid += entry.credit;
       } else if (entry.category === 'INSTALLMENT') {
         stat.installmentsPaid += entry.credit;
-        stat.installmentCount += 1;
+        stat.installmentCount += entry.monthsCount ?? 1;
       } else if (entry.category === 'DIVIDEND_PAYOUT') {
         stat.dividendEarned += entry.debit;
       }

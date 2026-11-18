@@ -1,5 +1,14 @@
 export type UserRole = 'SUPER_ADMIN' | 'TREASURER' | 'MEMBER';
 
+export interface UserAccountRecord {
+  uid: string;
+  userId?: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  linkedMemberId: string;
+}
+
 export type PageId =
   | 'forum'
   | 'members'
@@ -37,6 +46,7 @@ export interface Member {
   nominee: NomineeInfo;
   avatarColor: string;
   avatarUrl?: string;
+  ownerUid?: string;
 }
 
 export type LedgerCategory =
@@ -65,6 +75,8 @@ export interface LedgerEntry {
   credit: number; // Inflow / Capital / Return
   description: string;
   memberId?: string; // FVC-001 .. FVC-111
+  memberOwnerUid?: string;
+  memberOwnerEmail?: string;
   investmentId?: string; // INV-001 ..
   approvedBy: string;
   status: ApprovalStatus;
@@ -72,6 +84,8 @@ export interface LedgerEntry {
   paymentSubCategory?: PaymentSubCategory;
   monthKey?: string; // e.g., "2026-11"
   monthLabel?: string; // e.g., "নভেম্বর ২০২৬"
+  monthsCount?: number; // 1 for single month, or N for consolidated historical seed
+  coveredMonths?: string[]; // e.g., ["2026-01", ..., "2026-10"]
   paymentMethod?: PaymentMethod;
   referenceNo?: string;
   receiptNo?: string; // e.g., RCP-2026-0412
@@ -79,6 +93,7 @@ export interface LedgerEntry {
   attachmentName?: string;
   submittedBy?: string;
   rejectionReason?: string;
+  authorUid?: string;
 }
 
 export type InvestmentCategory =
